@@ -1,52 +1,26 @@
-const root = document.getElementById("root");
-const listtodo = JSON.parse(localStorage.getItem("listtodo")) ?? [];
+// const a = [];
+let state = {
+  hash: location.hash,
+  listtodo: JSON.parse(localStorage.getItem("listtodo")) ?? [],
+};
 
-if (location.hash === "#home" || location.hash === "") {
-  const homepage = homePage();
-  const div = document.createElement("div");
-  root.innerHTML = "";
-  div.append(homepage);
-  root.append(div);
-} else if (location.hash === "#add") {
-  addpage = addPage();
-  const div = document.createElement("div");
-  root.innerHTML = "";
-  div.append(addpage);
-  root.append(div);
+function setState(newState) {
+  const prevState = { ...state };
+  const nextState = { ...state, ...newState };
+  state = nextState;
+  onStatechange(prevState, nextState);
 }
 
-function homePage() {
-  const navbar = navBar();
-  const judul = document.createElement("p");
-  judul.textContent = "Berikut list ToDo Anda :";
-  const ullist = document.createElement("ol");
-  for (var i = 0; i < listtodo.length; i++) {
-    const list = document.createElement("li");
-    list.textContent = listtodo[i];
-    const button = document.createElement("input");
-    button.type = "button";
-    button.value = "x";
-    button.id = i;
-    button.onclick = function (event) {
-      event.preventDefault();
-      listtodo.splice(button.id, 1);
-      localStorage.setItem("listtodo", JSON.stringify(listtodo));
-      const homepage = homePage();
-      const div = document.createElement("div");
-      root.innerHTML = "";
-      div.append(homepage);
-      root.append(div);
-    };
-    list.append(" - ");
-    list.appendChild(button);
-    ullist.appendChild(list);
+function onStatechange(prevState, nextState) {
+  if (prevState.listtodo !== nextState.listtodo) {
+    state.listtodo = [...prevState.listtodo, ...nextState.listtodo];
+    localStorage.setItem("listtodo", JSON.stringify(nextState.listtodo));
   }
-  const div = document.createElement("div");
-  div.append(navbar);
-  div.append(judul);
-  div.append(ullist);
 
-  return div;
+  if (prevState.hash !== nextState.hash) {
+    history.pushState(null, "", nextState.hash);
+    render();
+  }
 }
 
 function Link(props) {
@@ -55,10 +29,8 @@ function Link(props) {
   link.textContent = props.label;
   link.onclick = function (event) {
     event.preventDefault();
-    const Component = props.Component();
-    root.innerHTML = "";
-    root.append(Component);
-    history.pushState(null, "", event.target.href);
+    const url = new URL(event.target.href);
+    setState({ hash: url.hash });
   };
 
   return link;
@@ -68,13 +40,11 @@ function navBar() {
   const linkhome = Link({
     href: "#home",
     label: "Home",
-    Component: homePage,
   });
 
   const linkadd = Link({
     href: "#add",
     label: "Add ToDo",
-    Component: addPage,
   });
   const div = document.createElement("div");
   div.append(linkhome);
@@ -83,14 +53,74 @@ function navBar() {
   return div;
 }
 
+function delete_list(props) {
+  console.log(props);
+}
+
+function print_list(props) {
+  const ullist = document.createElement("ol");
+  state.listtodo.forEach((lists) => {
+    const list = document.createElement("li");
+    const button = document.createElement("button");
+    list.textContent = lists;
+    button.textContent = "x";
+    button.onclick = function (event) {
+      delete_list(lists);
+    };
+    list.append(" - ");
+    list.append(button);
+    ullist.appendChild(list);
+  });
+  return ullist;
+}
+
+function homePage() {
+  const navbar = navBar();
+  const list = print_list(state.listtodo);
+  const judul = document.createElement("p");
+  judul.textContent = "Berikut list ToDo Anda :";
+  // const judul = document.createElement("p");
+  // const ullist = document.createElement("ol");
+  // judul.textContent = "Berikut list ToDo Anda :";
+  // state.listtodo.forEach((lists) => {
+  //   const list = document.createElement("li");
+  //   const button = document.createElement("button");
+  //   list.textContent = lists;
+  //   button.textContent = "x";
+  //   list.append(" - ");
+  //   list.append(button);
+  //   ullist.appendChild(list);
+  // });
+  // for (var i = 0; i < listtodo.length; i++) {
+  //   const list = document.createElement("li");
+  //   list.textContent = listtodo[i];
+  //   const button = document.createElement("button");
+  //   button.textContent = "x";
+  //   button.id = i;
+  //   button.onclick = function (event) {
+  //     event.preventDefault();
+  //     listtodo.splice(button.id, 1);
+  //     localStorage.setItem("listtodo", JSON.stringify(listtodo));
+  //     render();
+  //   };
+  //   list.append(" - ");
+  //   list.appendChild(button);
+  //   ullist.appendChild(list);
+  // }
+  const div = document.createElement("div");
+  div.append(navbar);
+  div.append(judul);
+  div.append(list);
+
+  return div;
+}
+
 function addPage() {
   const navbar = Link({
     href: "#home",
     label: "Kembali ke List",
-    Component: homePage,
   });
   const form = document.createElement("div");
-  // const form = document.createElement("form");
   const input = document.createElement("input");
   const button = document.createElement("input");
   input.type = "text";
@@ -105,14 +135,7 @@ function addPage() {
     if (input.value === "") {
       alert("Nilai Harus Terisi");
     } else if (input.value !== "") {
-      listtodo.push(input.value);
-      localStorage.setItem("listtodo", JSON.stringify(listtodo));
-      input.value = "";
-      const homepage = homePage();
-      const div = document.createElement("div");
-      root.innerHTML = "";
-      div.append(homepage);
-      root.append(div);
+      setState({ listtodo: [input.value], hash: navbar.attributes.href.value });
     }
   };
   form.append(input);
@@ -122,3 +145,22 @@ function addPage() {
   div.append(form);
   return div;
 }
+
+function App() {
+  const homepage = homePage();
+  const addpage = addPage();
+  if (location.hash === "#home" || location.hash === "") {
+    return homepage;
+  } else if (location.hash === "#add") {
+    return addpage;
+  }
+}
+
+function render() {
+  const root = document.getElementById("root");
+  const app = App();
+  root.innerHTML = "";
+  root.append(app);
+}
+
+render();

@@ -1,4 +1,40 @@
-const listtodo = JSON.parse(localStorage.getItem("listtodo")) ?? [];
+let state = {
+  hash: location.hash,
+  listtodo: JSON.parse(localStorage.getItem("listtodo")) ?? [],
+};
+
+function setState(newState) {
+  const prevState = { ...state };
+  const nextState = { ...state, ...newState };
+  console.log(typeof nextState.listtodo);
+  onStatechange(prevState, nextState);
+  render();
+}
+
+function onStatechange(prevState, nextState) {
+  if (
+    prevState.listtodo !== nextState.listtodo &&
+    typeof nextState.listtodo == "object"
+  ) {
+    nextState.listtodo = [...prevState.listtodo, ...nextState.listtodo];
+    state = nextState;
+    localStorage.setItem("listtodo", JSON.stringify(nextState.listtodo));
+  }
+
+  if (
+    prevState.listtodo !== nextState.listtodo &&
+    typeof nextState.listtodo == "number"
+  ) {
+    prevState.listtodo.splice(nextState.listtodo, 1);
+    state = prevState;
+    localStorage.setItem("listtodo", JSON.stringify(prevState.listtodo));
+  }
+
+  if (prevState.hash !== nextState.hash) {
+    state = nextState;
+    history.pushState(null, "", nextState.hash);
+  }
+}
 
 function Link(props) {
   const link = document.createElement("a");
@@ -6,8 +42,8 @@ function Link(props) {
   link.textContent = props.label;
   link.onclick = function (event) {
     event.preventDefault();
-    history.pushState(null, "", event.target.href);
-    render();
+    const url = new URL(event.target.href);
+    setState({ hash: url.hash });
   };
 
   return link;
@@ -30,32 +66,32 @@ function navBar() {
   return div;
 }
 
-function homePage() {
-  const navbar = navBar();
-  const judul = document.createElement("p");
+function print_list(props) {
   const ullist = document.createElement("ol");
-  judul.textContent = "Berikut list ToDo Anda :";
-  for (var i = 0; i < listtodo.length; i++) {
+  state.listtodo.forEach((lists, index) => {
     const list = document.createElement("li");
-    list.textContent = listtodo[i];
-    const button = document.createElement("input");
-    button.type = "button";
-    button.value = "x";
-    button.id = i;
+    const button = document.createElement("button");
+    list.textContent = lists;
+    button.textContent = "x";
     button.onclick = function (event) {
-      event.preventDefault();
-      listtodo.splice(button.id, 1);
-      localStorage.setItem("listtodo", JSON.stringify(listtodo));
-      render();
+      setState({ listtodo: index });
     };
     list.append(" - ");
-    list.appendChild(button);
+    list.append(button);
     ullist.appendChild(list);
-  }
+  });
+  return ullist;
+}
+
+function homePage() {
+  const navbar = navBar();
+  const list = print_list(state.listtodo);
+  const judul = document.createElement("p");
+  judul.textContent = "Berikut list ToDo Anda :";
   const div = document.createElement("div");
   div.append(navbar);
   div.append(judul);
-  div.append(ullist);
+  div.append(list);
 
   return div;
 }
@@ -80,11 +116,7 @@ function addPage() {
     if (input.value === "") {
       alert("Nilai Harus Terisi");
     } else if (input.value !== "") {
-      listtodo.push(input.value);
-      localStorage.setItem("listtodo", JSON.stringify(listtodo));
-      input.value = "";
-      history.pushState(null, "", navbar.href);
-      render();
+      setState({ listtodo: [input.value], hash: navbar.attributes.href.value });
     }
   };
   form.append(input);
